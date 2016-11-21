@@ -11,3 +11,7 @@ can be used to derive data encryption keys for client side encryption
 * gets import parameters from AWS API
 * imports key material
 * stores key material locally in key_material/*
+
+WARNING: experimental stuff. Don't use in production!
+Key generation is not secure.
+No key rotation. No key durability.

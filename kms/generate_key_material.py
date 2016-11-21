@@ -1,7 +1,7 @@
-import boto3
-import logging
 import base64
 from subprocess import call
+import config
+from session import *
 
 """
 generate an external AWS customer master key (CMK) with python boto3
@@ -19,23 +19,10 @@ __copyright__ = "Copyright 2016"
 __license__ = "GPL"
 __version__ = "0.0.1"
 
-MASTER_KEY_NAME = "External_Master_Key"
-ALIAS_PATTERN = "alias/{0}"
-PLAINTEXT_KEY = "../key_material/PlaintextKeyMaterial.bin"
-ENCRYPTED_KEY = "../key_material/EncryptedKeyMaterial.bin"
-PUBLIC_KEY = "../key_material/public.key.bin"
-PUBLIC_KEY_64 = PUBLIC_KEY + ".b64"
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
-
-session = boto3.Session(profile_name="codecentric")
-kms = session.client("kms")
-
 
 def generate_external_master_key(client):
     generated_key = client.create_key(
-        Description=MASTER_KEY_NAME,
+        Description=config.MASTER_KEY_NAME,
         KeyUsage='ENCRYPT_DECRYPT',
         Origin='EXTERNAL',
         BypassPolicyLockoutSafetyCheck=False
@@ -44,7 +31,7 @@ def generate_external_master_key(client):
     logger.info("created master key {0}".format(key_id))
 
     key_alias = client.create_alias(
-        AliasName=ALIAS_PATTERN.format(MASTER_KEY_NAME),
+        AliasName=config.ALIAS_PATTERN.format(config.MASTER_KEY_NAME),
         TargetKeyId=key_id
     )
     logger.info("set alias {0}".format(key_alias))
@@ -55,7 +42,7 @@ def generate_external_master_key(client):
 def get_master_key(client, key_alias):
     aliases = client.list_aliases()
     for alias in aliases['Aliases']:
-        if alias['AliasName'] == ALIAS_PATTERN.format(key_alias):
+        if alias['AliasName'] == config.ALIAS_PATTERN.format(key_alias):
             return alias['TargetKeyId']
     return False
 
@@ -70,17 +57,17 @@ def import_key_material(client, key_id):
     public_key = import_parameters['PublicKey']
     public_key_b64 = base64.b64encode(import_parameters['PublicKey'])
 
-    f = open(PUBLIC_KEY_64, 'w')
+    f = open(config.PUBLIC_KEY_64, 'w')
     f.write(public_key_b64)
     f.close()
 
-    call(["openssl", "enc", "-d", "-base64", "-A", "-in", PUBLIC_KEY_64, "-out", PUBLIC_KEY])
-    call(["openssl", "rand", "-out", PLAINTEXT_KEY, "32"])
-    call(["openssl", "rsautl", "-encrypt", "-in", PLAINTEXT_KEY,
-          "-oaep", "-inkey", PUBLIC_KEY, "-keyform", "DER",
-          "-pubin", "-out", ENCRYPTED_KEY])
+    call(["openssl", "enc", "-d", "-base64", "-A", "-in", config.PUBLIC_KEY_64, "-out", config.PUBLIC_KEY])
+    call(["openssl", "rand", "-out", config.PLAINTEXT_KEY, "32"])
+    call(["openssl", "rsautl", "-encrypt", "-in", conifg.PLAINTEXT_KEY,
+          "-oaep", "-inkey", config.PUBLIC_KEY, "-keyform", "DER",
+          "-pubin", "-out", config.ENCRYPTED_KEY])
 
-    f = open(ENCRYPTED_KEY, "rb")
+    f = open(config.ENCRYPTED_KEY, "rb")
     key_material = f.read()
     f.close()
 
@@ -93,8 +80,7 @@ def import_key_material(client, key_id):
     logger.info("imported key material")
 
 
-
-cmk = get_master_key(kms, MASTER_KEY_NAME)
+cmk = get_master_key(kms, config.MASTER_KEY_NAME)
 if cmk:
     logger.info("found master key {0}".format(cmk))
 else:
